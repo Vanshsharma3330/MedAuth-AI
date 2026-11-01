@@ -1,0 +1,11 @@
+stubs:
+  document: false
+  completeness: false
+  eligibility: false
+  risk: false
+  retrieval: false
+  decision: false
+  reflection: false
+  reporting: false
+  indexing: false
+  chat: false
