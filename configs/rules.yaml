@@ -1,0 +1,84 @@
+# Validation rules. threshold numericals and reporting settings
+
+
+mandatory_documents:
+  - pa_request_form
+  - clinical_notes
+  - physician_order
+  - insurance_card
+  - lab_results
+  - imaging_report
+  - referral_letter
+  - photo_id
+
+clinical_rules:
+  procedure_diagnosis_crosswalk:
+    "72148": ["M54"]      
+    "43775": ["E66"]      
+  duplicate_request_window_days: 30
+  lab_abnormal_tolerance_percent: 10.0
+
+policy_rules:
+  general:
+    - rule_id: "GEN-1"
+      rule_text: "All four mandatory documents — pa_request_form, clinical_notes, physician_order, insurance_card — must be present and successfully extracted before any eligibility or risk analysis proceeds. Missing documents result in PENDED_ADDITIONAL_INFO."
+    - rule_id: "GEN-2"
+      rule_text: "The submitted diagnosis code must fall within the accepted clinical crosswalk for the requested procedure code. A mismatch is a fraud_indicator and forces REQUIRES_PEER_REVIEW."
+    - rule_id: "GEN-3"
+      rule_text: "A duplicate request for the same patient and procedure code within a 30-day window is a fraud_indicator and forces REQUIRES_PEER_REVIEW."
+    - rule_id: "GEN-4"
+      rule_text: "Human-in-the-loop is conditional, not universal. A determination is routed to a licensed clinical reviewer (routing.escalate_to_human = true) ONLY when manual approval is required, i.e. when any trigger in the human_review section applies: an adverse or non-final outcome (DENIED, PARTIALLY_APPROVED, REQUIRES_PEER_REVIEW), confidence below human_review.min_auto_confidence, any fraud indicator, a risk level outside human_review.auto_risk_levels, a peer-review flag, or a failed self-check/processing error. A clean, high-confidence APPROVED determination with no trigger is finalized automatically and recorded in the audit trail. MedAuth AI never issues a fully autonomous adverse determination - a licensed clinical reviewer always signs off before an adverse outcome is communicated to the provider, in accordance with utilization-review regulatory requirements."
+    - rule_id: "GEN-5"
+      rule_text: "An ordering or performing provider flagged as unverified or sanctioned in the Provider Verification registry is a fraud_indicator."
+    - rule_id: "GEN-6"
+      rule_text: "Confidence score for any determination below 0.5 must be downgraded to REQUIRES_PEER_REVIEW irrespective of the eligibility/risk outcome."
+  by_procedure:
+    "72148":   # MRI Lumbar Spine
+      - rule_id: "MRI-1"
+        rule_text: "Requires active insurance eligibility (is_active=True) at time of service. Requests for members without active coverage cannot be authorized."
+      - rule_id: "MRI-2"
+        rule_text: "Prior authorization for lumbar MRI requires documentation of at least 6 weeks of conservative therapy (physical therapy, NSAIDs, or chiropractic care) that has failed to resolve symptoms, unless red-flag symptoms (progressive neurological deficit, cauda equina signs) are present."
+      - rule_id: "MRI-3"
+        rule_text: "The submitted diagnosis code must be clinically consistent with the requested procedure. A diagnosis unrelated to the lumbar spine does not support medical necessity for a lumbar MRI."
+      - rule_id: "MRI-4"
+        rule_text: "Requests with a risk_score above 0.60 must be routed to peer review regardless of other criteria."
+    "43775":   # Bariatric Surgery
+      - rule_id: "BAR-1"
+        rule_text: "Requires active insurance eligibility (is_active=True) at time of service."
+      - rule_id: "BAR-2"
+        rule_text: "Candidate must have a BMI of 40 or greater, or a BMI of 35-39.9 with at least one obesity-related comorbidity (type 2 diabetes, hypertension, obstructive sleep apnea)."
+      - rule_id: "BAR-3"
+        rule_text: "Candidate must show documented participation in a physician-supervised weight-management program for a minimum of 6 months prior to the request."
+      - rule_id: "BAR-4"
+        rule_text: "Requests with a risk_score above 0.60 must be routed to peer review regardless of other criteria."
+
+risk_thresholds:
+  low_max: 0.30
+  medium_max: 0.60
+  peer_review_score: 0.60
+
+reflection_thresholds:
+  min_groundedness: 0.60
+  min_relevance: 0.60
+  min_confidence_alignment: 0.60
+
+human_review:
+  min_auto_confidence: 0.80           
+  review_decisions:                   
+    - DENIED
+    - PARTIALLY_APPROVED
+    - REQUIRES_PEER_REVIEW
+  auto_risk_levels: ["low"]            
+  review_on_fraud_indicator: true      
+
+
+reporting:
+  output_formats: ["json", "html"]
+  json_output_dir: "reports/json"
+  html_output_dir: "reports/html"
+  audit_log_path: "reports/audit_log.jsonl"
+
+logging:
+  level: "INFO"
+  log_file: "logs/medauth.log"
+  audit_trail: true
